@@ -37,5 +37,3 @@ Then open http://localhost:8000/docs and test:
 ## Frontend Quickstart (during lab)
 
 Follow the **Incremental Lab Guide** to scaffold the Angular app under `frontend/`.
-
-This repo is intended as a starting point you can push to Git (e.g., GitHub) and hand out to attendees as a base skeleton.
