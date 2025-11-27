@@ -1,4 +1,4 @@
-PLACEHOLDER# Incremental Lab Guide: Task Manager with FastAPI & Angular
+# Incremental Lab Guide: Task Manager with FastAPI & Angular
 
 **Goal:** Build a full-stack task manager with authentication from scratch, step by step.
 
@@ -44,7 +44,7 @@ npm install -g @angular/cli@20
 
 ## 1. Create the Project Folder Structure
 
-From your working directory (e.g., `crossskill-demo/`), create the main folders:
+From your working directory (e.g., `crossskill-session/`), create the main folders:
 
 ```powershell
 # From the root where you want the lab folders
