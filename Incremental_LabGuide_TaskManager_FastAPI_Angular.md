@@ -1,6 +1,6 @@
 # Incremental Lab Guide: Task Manager with FastAPI & Angular
 
-**Goal:** Build a full-stack task manager with authentication from scratch, step by step.
+**Goal:** Build a full-stack task manager with a JWT-based login flow from scratch, step by step.
 
 - **Backend:** FastAPI (async endpoints) + SQLite + SQLAlchemy + JWT auth
 - **Frontend:** Angular 20 (standalone components) + route guards + interceptor
@@ -739,22 +739,859 @@ bootstrapApplication(AppComponent, {
 - Bootstrap in `main.ts` wires router + interceptor.
 ```
 
-### 3.9. Implement Login & Task Components (High-Level)
+### 3.9. Implement Login & Task Components
 
-For this step, you will:
+#### 3.9.1. LoginComponent (reactive form + navigation)
 
-- Build `LoginComponent` using a reactive form (email + password) that calls `AuthService.login()` and navigates to `/tasks` on success.
-- Build `TasksComponent` that:
-  - Lists tasks from `TaskService.getTasks()`.
-  - Navigates to `TaskDetailComponent` on click.
-- Build `TaskDetailComponent` that allows editing/updating a single task.
+The login page uses a reactive form and talks to `AuthService` to obtain a JWT from `/token`.
 
-(You can inline or reference the full component code from the main lab guide or the reference repo.)
+In `src/app/login/login.component.ts`, implement a standalone component that:
+
+- Defines a reactive form group with `email` (required, email format) and `password` (required, min length 6).
+- Calls `authService.login(email, password)` on submit and navigates to `/tasks` on success.
+- Handles errors with a friendly message depending on the HTTP status.
+- Supports a **Skip to Tasks** button and a dismissable error banner.
+- Provides an expandable **Test Credentials** section showing the demo accounts.
+
+You can use this implementation:
+
+```typescript
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { AuthService } from '../auth.service';
+
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  templateUrl: './login.component.html',
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+})
+export class LoginComponent {
+  loginForm: FormGroup;
+  isLoading = false;
+  errorMessage = '';
+  isCredentialsExpanded = false;
+
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.loginForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+    });
+  }
+
+  toggleCredentials(): void {
+    this.isCredentialsExpanded = !this.isCredentialsExpanded;
+  }
+
+  onLogin(): void {
+    if (this.loginForm.invalid) {
+      this.errorMessage = 'Please fill in all fields correctly.';
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    const { email, password } = this.loginForm.value;
+
+    this.authService.login(email, password).subscribe({
+      next: () => {
+        this.router.navigate(['/tasks']);
+      },
+      error: (error) => {
+        if (error.status === 401) {
+          this.errorMessage = 'Incorrect email or password. Please try again.';
+        } else if (error.status === 0) {
+          this.errorMessage = 'Cannot connect to server. Please check if the backend is running.';
+        } else {
+          this.errorMessage = 'An error occurred during login. Please try again.';
+        }
+        this.isLoading = false;
+      },
+    });
+  }
+
+  skipLogin(): void {
+    this.router.navigate(['/tasks']);
+  }
+
+  dismissError(): void {
+    this.errorMessage = '';
+  }
+}
+```
+
+In `src/app/login/login.component.html`, you can use this template:
+
+```html
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h2>Task Manager</h2>
+      <p class="subtitle">Sign in to continue</p>
+    </div>
+
+    <div class="error-banner" *ngIf="errorMessage">
+      <span class="error-icon">⚠</span>
+      <span class="error-text">{{ errorMessage }}</span>
+      <button class="error-close" (click)="dismissError()" aria-label="Close">×</button>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          formControlName="email"
+          class="form-input"
+          [class.invalid]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+          placeholder="demo@example.com"
+          [disabled]="isLoading"
+        />
+        <div class="error-message" *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
+          <span *ngIf="loginForm.get('email')?.errors?.['required']">Email is required</span>
+          <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          formControlName="password"
+          class="form-input"
+          [class.invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+          placeholder="Enter your password"
+          [disabled]="isLoading"
+        />
+        <div class="error-message" *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+          <span *ngIf="loginForm.get('password')?.errors?.['required']">Password is required</span>
+          <span *ngIf="loginForm.get('password')?.errors?.['minlength']">
+            Password must be at least 6 characters
+          </span>
+        </div>
+      </div>
+
+      <div class="login-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="isLoading || loginForm.invalid">
+          <span *ngIf="!isLoading">Sign In</span>
+          <span *ngIf="isLoading" class="spinner"></span>
+          <span *ngIf="isLoading">Signing in...</span>
+        </button>
+
+        <button type="button" class="btn btn-secondary" (click)="skipLogin()" [disabled]="isLoading">
+          Skip to Tasks
+        </button>
+      </div>
+    </form>
+
+    <div class="login-info">
+      <div class="info-box">
+        <div class="info-header" (click)="toggleCredentials()">
+          <span class="toggle-arrow" [class.expanded]="isCredentialsExpanded">▶</span>
+          <span class="info-icon">ℹ️</span>
+          <p class="info-title"><strong>Test Credentials</strong></p>
+        </div>
+        <div class="info-content" *ngIf="isCredentialsExpanded">
+          <ul>
+            <li>Email: <code>demo@example.com</code> / Password: <code>password123</code></li>
+            <li>Email: <code>admin@example.com</code> / Password: <code>admin123</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+You can copy styles from the reference solution or keep the layout minimal; the important behavior is:
+
+- Validating input before submit.
+- Calling `AuthService.login(...)`.
+- Handling error cases.
+- Navigating to `/tasks` on success.
+
+#### 3.9.2. TasksComponent (list, checkbox toggle, toaster, confirmation modal)
+
+The tasks page (`/tasks`) is responsible for:
+
+- Loading all tasks from `TaskService.getTasks()` on init.
+- Letting the user **add** a new task (title + optional description).
+- Letting the user **mark a task as done/undone** via a checkbox.
+- Letting the user **delete** a task with a styled confirmation popup (no raw `confirm()` calls).
+- Showing **loading** and **error** states.
+- Showing small **toaster messages** for success, warning, and error events.
+
+In `src/app/tasks/tasks.component.ts`, implement this standalone component:
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { Task, TaskService } from '../task.service';
+import { ConfirmationModalComponent } from '../confirmation-modal/confirmation-modal.component';
+
+@Component({
+  selector: 'app-tasks',
+  templateUrl: './tasks.component.html',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, ConfirmationModalComponent]
+})
+export class TasksComponent implements OnInit {
+  tasks: Task[] = [];
+  newTask: Partial<Task> = {};
+
+  isLoading = false;
+  errorMessage = '';
+
+  showDeleteModal = false;
+  taskToDelete: number | null = null;
+
+  constructor(private taskService: TaskService) {}
+
+  ngOnInit(): void {
+    this.loadTasks();
+  }
+
+  loadTasks(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.taskService.getTasks().subscribe({
+      next: (data) => {
+        this.tasks = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = 'Failed to load tasks. Please check if the backend is running.';
+        this.showToaster('error', this.errorMessage);
+        console.error('Error loading tasks:', error);
+        this.isLoading = false;
+      }
+    });
+  }
+
+  addTask(): void {
+    if (!this.newTask.title?.trim()) {
+      this.showToaster('warning', 'Please enter a task title.');
+      return;
+    }
+
+    if (this.isLoading) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.taskService.addTask(this.newTask).subscribe({
+      next: () => {
+        this.showToaster('success', 'Task added successfully!');
+        this.newTask = {};
+        this.loadTasks();
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = 'Failed to add task. Please try again.';
+        this.showToaster('error', this.errorMessage);
+        console.error('Error adding task:', error);
+        this.isLoading = false;
+      }
+    });
+  }
+
+  updateTask(task: Task): void {
+    this.errorMessage = '';
+
+    this.taskService.updateTask(task).subscribe({
+      next: () => {
+        const status = task.done ? 'completed' : 'reopened';
+        this.showToaster('success', `Task marked as ${status}.`);
+        this.loadTasks();
+      },
+      error: (error) => {
+        this.errorMessage = 'Failed to update task. Please try again.';
+        this.showToaster('error', this.errorMessage);
+        console.error('Error updating task:', error);
+        task.done = !task.done;
+      }
+    });
+  }
+
+  deleteTask(id: number): void {
+    this.taskToDelete = id;
+    this.showDeleteModal = true;
+  }
+
+  confirmDelete(): void {
+    if (this.taskToDelete === null) return;
+
+    this.errorMessage = '';
+
+    this.taskService.deleteTask(this.taskToDelete).subscribe({
+      next: () => {
+        this.showToaster('success', 'Task deleted successfully.');
+        this.loadTasks();
+      },
+      error: (error) => {
+        this.errorMessage = 'Failed to delete task. Please try again.';
+        this.showToaster('error', this.errorMessage);
+        console.error('Error deleting task:', error);
+      }
+    });
+
+    this.taskToDelete = null;
+  }
+
+  cancelDelete(): void {
+    this.taskToDelete = null;
+  }
+
+  private showToaster(type: 'success' | 'error' | 'warning' | 'info', message: string): void {
+    const container = this.getOrCreateToasterContainer();
+    const toaster = document.createElement('div');
+    toaster.className = `toaster ${type}`;
+
+    const icons = {
+      success: '✓',
+      error: '✕',
+      warning: '⚠',
+      info: 'ℹ'
+    };
+
+    toaster.innerHTML = `
+      <span class="toaster-icon">${icons[type]}</span>
+      <span class="toaster-message">${message}</span>
+      <button class="toaster-close" aria-label="Close">×</button>
+    `;
+
+    container.appendChild(toaster);
+
+    const closeBtn = toaster.querySelector('.toaster-close');
+    closeBtn?.addEventListener('click', () => this.removeToaster(toaster as HTMLElement));
+
+    setTimeout(() => this.removeToaster(toaster as HTMLElement), 5000);
+  }
+
+  private getOrCreateToasterContainer(): HTMLElement {
+    let container = document.querySelector('.toaster-container') as HTMLElement;
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'toaster-container';
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
+  private removeToaster(toaster: HTMLElement): void {
+    toaster.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => toaster.remove(), 300);
+  }
+}
+```
+
+The key behavior for the **checkbox** is:
+
+- The `[checked]` state is bound to `task.done`.
+- When the checkbox is toggled, `updateTask(task)` is called.
+- If the backend call fails, `task.done` is flipped back so the UI stays consistent.
+
+In `src/app/tasks/tasks.component.html`, you can use this template:
+
+```html
+<div class="tasks-container">
+  <div *ngIf="errorMessage" class="error-banner">
+    <span class="error-icon">⚠️</span>
+    <span>{{ errorMessage }}</span>
+    <button (click)="errorMessage = ''" class="error-close">×</button>
+  </div>
+
+  <div class="card add-task-card">
+    <h2 class="card-title">
+      <span class="icon">➕</span>
+      Add New Task
+    </h2>
+    <form class="add-task-form" (submit)="addTask(); $event.preventDefault()">
+      <div class="form-group">
+        <label for="task-title">Title <span class="required">*</span></label>
+        <input
+          id="task-title"
+          type="text"
+          [(ngModel)]="newTask.title"
+          name="title"
+          placeholder="Enter task title"
+          class="form-input"
+          [disabled]="isLoading"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <label for="task-description">Description</label>
+        <textarea
+          id="task-description"
+          [(ngModel)]="newTask.description"
+          name="description"
+          placeholder="Enter task description"
+          class="form-input form-textarea"
+          [disabled]="isLoading"
+          rows="3"
+        ></textarea>
+      </div>
+      <div class="form-legend">
+        <span class="required">*</span> - fields are mandatory
+      </div>
+      <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+        <span *ngIf="!isLoading" class="btn-icon">✓</span>
+        <span *ngIf="isLoading" class="spinner-small"></span>
+        <span *ngIf="!isLoading">Add Task</span>
+        <span *ngIf="isLoading">Adding...</span>
+      </button>
+    </form>
+  </div>
+
+  <div class="card tasks-list-card">
+    <h2 class="card-title">
+      <span class="icon">📋</span>
+      Your Tasks
+      <span class="task-count">{{ tasks.length }}</span>
+    </h2>
+
+    <div *ngIf="isLoading && tasks.length === 0" class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading tasks...</p>
+    </div>
+
+    <div *ngIf="!isLoading && tasks.length === 0" class="empty-state">
+      <div class="empty-icon">📝</div>
+      <p>No tasks yet. Create your first task above!</p>
+    </div>
+
+    <ul class="tasks-list" *ngIf="tasks.length > 0">
+      <li *ngFor="let task of tasks" class="task-item" [class.completed]="task.done">
+        <div class="task-checkbox">
+          <input
+            type="checkbox"
+            [id]="'task-' + task.id"
+            [(ngModel)]="task.done"
+            (change)="updateTask(task)"
+            class="checkbox-input"
+          />
+          <label [for]="'task-' + task.id" class="checkbox-label"></label>
+        </div>
+        <div class="task-content">
+          <h3 class="task-title">
+            <a [routerLink]="['/tasks', task.id]" class="task-link">{{ task.title }}</a>
+          </h3>
+          <p class="task-description" *ngIf="task.description">{{ task.description }}</p>
+        </div>
+        <button
+          (click)="deleteTask(task.id)"
+          class="btn btn-danger btn-icon-only"
+          aria-label="Delete task"
+          title="Delete task"
+        >
+          <span class="btn-icon">🗑️</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<app-confirmation-modal
+  [(show)]="showDeleteModal"
+  title="Delete Task"
+  message="Are you sure you want to delete this task? This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  (onConfirm)="confirmDelete()"
+  (onCancel)="cancelDelete()">
+</app-confirmation-modal>
+```
+
+#### 3.9.3. ConfirmationModalComponent (reusable confirmation popup)
+
+The confirmation popup is a **reusable standalone component** used by `TasksComponent` when deleting a task.
+
+In `src/app/confirmation-modal/confirmation-modal.component.ts`, you can use this implementation:
+
+```typescript
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-confirmation-modal',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="modal-overlay" *ngIf="show" (click)="onCancelClick()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>{{ title }}</h3>
+        </div>
+        <div class="modal-body">
+          <p>{{ message }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="onCancelClick()" type="button">
+            {{ cancelText }}
+          </button>
+          <button class="btn btn-danger" (click)="onConfirmClick()" type="button" [autofocus]="true">
+            {{ confirmText }}
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      max-width: 450px;
+      width: 90%;
+      animation: slideUp 0.2s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: #1f2937;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+    }
+
+    .modal-body p {
+      margin: 0;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      padding: 0.625rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+  `]
+})
+export class ConfirmationModalComponent {
+  @Input() show = false;
+  @Input() title = 'Confirm Action';
+  @Input() message = 'Are you sure you want to proceed?';
+  @Input() confirmText = 'OK';
+  @Input() cancelText = 'Cancel';
+
+  @Output() showChange = new EventEmitter<boolean>();
+  @Output() onConfirm = new EventEmitter<void>();
+  @Output() onCancel = new EventEmitter<void>();
+
+  onConfirmClick(): void {
+    this.show = false;
+    this.showChange.emit(this.show);
+    this.onConfirm.emit();
+  }
+
+  onCancelClick(): void {
+    this.show = false;
+    this.showChange.emit(this.show);
+    this.onCancel.emit();
+  }
+}
+```
+
+#### 3.9.4. TaskDetailComponent (single task view with checkbox)
+
+The task detail page (`/tasks/:id`) lets users edit a single task and also toggle its **done** checkbox.
+
+In `src/app/task-detail/task-detail.component.ts`, you can use this implementation:
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Task, TaskService } from '../task.service';
+
+@Component({
+  selector: 'app-task-detail',
+  templateUrl: './task-detail.component.html',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, RouterModule]
+})
+export class TaskDetailComponent implements OnInit {
+  taskForm!: FormGroup;
+  isLoading = false;
+  errorMessage = '';
+  taskId: number | null = null;
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private taskService: TaskService,
+    private formBuilder: FormBuilder
+  ) {}
+
+  ngOnInit(): void {
+    this.initializeForm();
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.taskId = parseInt(id, 10);
+      this.loadTask(this.taskId);
+    } else {
+      this.errorMessage = 'No task ID provided';
+    }
+  }
+
+  private initializeForm(): void {
+    this.taskForm = this.formBuilder.group({
+      title: ['', [Validators.required, Validators.minLength(3)]],
+      description: [''],
+      done: [false]
+    });
+  }
+
+  loadTask(id: number): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.taskService.getTask(id).subscribe({
+      next: (task: Task) => {
+        this.taskForm.patchValue({
+          title: task.title,
+          description: task.description || '',
+          done: task.done
+        });
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading task:', error);
+        this.errorMessage = 'Failed to load task. It may have been deleted.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  onSubmit(): void {
+    if (this.taskForm.invalid || !this.taskId) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    const updatedTask: Task = {
+      id: this.taskId,
+      ...this.taskForm.value
+    };
+
+    this.taskService.updateTask(updatedTask).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.router.navigate(['/tasks']);
+      },
+      error: (error) => {
+        console.error('Error updating task:', error);
+        this.errorMessage = 'Failed to update task. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  onDelete(): void {
+    if (!this.taskId || !confirm('Are you sure you want to delete this task?')) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.taskService.deleteTask(this.taskId).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.router.navigate(['/tasks']);
+      },
+      error: (error) => {
+        console.error('Error deleting task:', error);
+        this.errorMessage = 'Failed to delete task. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  onCancel(): void {
+    this.router.navigate(['/tasks']);
+  }
+}
+```
+
+In `src/app/task-detail/task-detail.component.html`, you can use this template:
+
+```html
+<div class="task-detail-container">
+  <div class="breadcrumb">
+    <a routerLink="/tasks" class="breadcrumb-link">← Back to Tasks</a>
+  </div>
+
+  <div class="detail-header">
+    <h2>Edit Task</h2>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading task details...</p>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-message">
+    <span class="error-icon">⚠</span>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <form [formGroup]="taskForm" (ngSubmit)="onSubmit()" *ngIf="!isLoading && !errorMessage">
+    <div class="form-group">
+      <label for="title">Title *</label>
+      <input
+        id="title"
+        type="text"
+        formControlName="title"
+        class="form-control"
+        [class.invalid]="taskForm.get('title')?.invalid && taskForm.get('title')?.touched"
+      />
+      <div class="validation-error" *ngIf="taskForm.get('title')?.invalid && taskForm.get('title')?.touched">
+        <span *ngIf="taskForm.get('title')?.errors?.['required']">Title is required</span>
+        <span *ngIf="taskForm.get('title')?.errors?.['minlength']">Title must be at least 3 characters</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea
+        id="description"
+        formControlName="description"
+        class="form-control"
+        rows="4"
+      ></textarea>
+    </div>
+
+    <div class="form-group checkbox-group">
+      <label>
+        <input type="checkbox" formControlName="done" />
+        <span>Mark as done</span>
+      </label>
+    </div>
+
+    <div class="button-group">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="taskForm.invalid || isLoading"
+      >
+        <span *ngIf="!isLoading">Save Changes</span>
+        <span *ngIf="isLoading">Saving...</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-danger"
+        (click)="onDelete()"
+        [disabled]="isLoading"
+      >
+        Delete Task
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="onCancel()"
+        [disabled]="isLoading"
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+</div>
+```
 
 **Checkpoint 8 (UX & Flow):**
 - Login page appears at `/login`.
 - After successful login, navigation to `/tasks` works.
-- From `/tasks`, you can drill into a task detail view and back.
+- `/tasks` shows a task list with add, checkbox toggle, toaster notifications, and a confirmation popup for delete.
+- From `/tasks`, you can drill into `/tasks/:id`, edit a task (including its done status), and navigate back.
 
 ### 3.10. Run and Test the Frontend
 
@@ -782,9 +1619,11 @@ npm start
 - The schemas use `TaskRead` consistently as the response model.
 - JWT tokens use `sub = user["username"]`, matching the mock user store.
 
-This incremental lab walks you from an empty `task-manager-lab` folder to a fully working FastAPI + Angular task manager that matches the final `my-task-manager` solution and the learning objectives:
+This incremental lab walks you from an empty `task-manager-lab` folder to a working FastAPI + Angular task manager that demonstrates the core concepts:
 
-- Build a modern async FastAPI backend with JWT auth.
+- Build a modern async FastAPI backend with a JWT-based login endpoint.
 - Use clean separation of concerns (models, schemas, CRUD, main app).
 - Implement an Angular 20 frontend with route guards, interceptors, and reactive forms.
-- Complete a full authentication + task management flow end-to-end.
+- Wire up a basic login experience and protected routes on the frontend.
+
+The authentication pieces in this lab are intentionally minimal and focus on understanding the flow (issuing tokens, storing them, attaching them to requests, and guarding routes). In a production application, you can extend the same patterns to enforce authentication on all APIs, add user registration and identity management, and implement more advanced authorization rules.
