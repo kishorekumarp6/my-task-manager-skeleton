@@ -15,7 +15,7 @@ You can start this lab in two ways:
 - **Option A – From Scratch (recommended for first-time run):**
   - Create a fresh `task-manager-lab/` folder and follow all steps from Section 1 onward.
 - **Option B – From Skeleton Repo (time-constrained / repeat runs):**
-  - Clone or download the `task-manager-skeleton` repo (provided by the instructor).
+  - Clone or download the `task-manager-skeleton` repo from the provided URL.
   - Backend is pre-populated with working FastAPI + JWT + CRUD.
   - Frontend folder is empty, ready for Angular scaffolding.
 
@@ -186,7 +186,7 @@ class Task(Base):
 
 ### 2.6. Define Pydantic Schemas (`app/schemas.py`)
 
-This step fixes the earlier **schema mismatch (Task vs TaskRead)** by using `TaskRead` consistently.
+Define Pydantic models that clearly separate input from output and use `TaskRead` consistently as the response type.
 
 ```python
 from datetime import datetime
@@ -367,7 +367,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 ```
 
-> This fixes blocker **#2** by ensuring `MOCK_USERS` includes `username` and we consistently use `username` as the JWT `sub`.
+> The `MOCK_USERS` entries include a `username` field, and JWT tokens consistently use `sub = username`.
 
 ### 2.9. Implement FastAPI App and Async Endpoints (`app/main.py`)
 
@@ -473,7 +473,7 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
     return None
 ```
 
-- This uses **async endpoints + sync CRUD**, with `TaskRead` as the response model, so blockers **#1, #2, #3** are all resolved here.
+- This uses **async endpoints + sync CRUD**, with `TaskRead` as the response model.
 
 **Checkpoint 4 (Backend API Surface):**
 - `/token` issues JWTs for `demo@example.com` and `admin@example.com`.
@@ -741,7 +741,7 @@ bootstrapApplication(AppComponent, {
 
 ### 3.9. Implement Login & Task Components (High-Level)
 
-For the lab, guide attendees to:
+For this step, you will:
 
 - Build `LoginComponent` using a reactive form (email + password) that calls `AuthService.login()` and navigates to `/tasks` on success.
 - Build `TasksComponent` that:
@@ -782,16 +782,7 @@ npm start
 - The schemas use `TaskRead` consistently as the response model.
 - JWT tokens use `sub = user["username"]`, matching the mock user store.
 
-**Earlier blockers and their resolution in this incremental lab:**
-
-1. **Inconsistent schema name (TaskRead vs Task):**
-   - Resolved by defining and consistently using `TaskRead` in `schemas.py` and all endpoint `response_model` declarations.
-2. **Incorrect `user["username"]` key in token creation:**
-   - Resolved by including `"username"` in each `MOCK_USERS` entry and using `data={"sub": user["username"]}` when creating tokens.
-3. **Conflicting async CRUD snippet and comments:**
-   - Resolved by implementing **only synchronous CRUD functions** in `crud.py` and explaining that FastAPI runs them in a thread pool when called from async endpoints.
-
-This incremental lab now walks attendees from an empty `task-manager-lab` folder to a fully working FastAPI + Angular task manager that matches the final `my-task-manager` solution and the session learning objectives:
+This incremental lab walks you from an empty `task-manager-lab` folder to a fully working FastAPI + Angular task manager that matches the final `my-task-manager` solution and the learning objectives:
 
 - Build a modern async FastAPI backend with JWT auth.
 - Use clean separation of concerns (models, schemas, CRUD, main app).
