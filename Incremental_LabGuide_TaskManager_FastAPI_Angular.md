@@ -4,8 +4,6 @@
 
 - **Backend:** FastAPI (async endpoints) + SQLite + SQLAlchemy + JWT auth
 - **Frontend:** Angular 20 (standalone components) + route guards + interceptor
-- **Reference Solution:** GitHub repo `my-task-manager` (for comparison after the lab)
-
 ---
 
 ## 0.0. Start Options: Empty Folder vs Skeleton Repo
@@ -912,7 +910,179 @@ In `src/app/login/login.component.html`, you can use this template:
 </div>
 ```
 
-You can copy styles from the reference solution or keep the layout minimal; the important behavior is:
+Here is a minimal-but-nice set of styles you can put in `src/app/login/login.component.css`:
+
+```css
+  .login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 2rem;
+  }
+
+  .login-card {
+    background: white;
+    border-radius: 12px;
+    padding: 3rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    width: 100%;
+  }
+
+  .login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .login-header h2 {
+    color: #1f2937;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .error-banner {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #fecaca;
+  }
+
+  .error-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .error-text {
+    flex: 1;
+  }
+
+  .error-close {
+    background: none;
+    border: none;
+    color: #991b1b;
+    cursor: pointer;
+    font-size: 1.5rem;
+    padding: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+
+  .login-form {
+    margin-bottom: 2rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  .form-input.invalid {
+    border-color: #dc2626;
+  }
+
+  .error-message {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+  }
+
+  .login-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: white;
+  }
+
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .login-info {
+    margin-bottom: 2rem;
+  }
+
+  .info-box {
+    background: #eff6ff;
+    border-left: 4px solid #2563eb;
+    padding: 1.5rem;
+    border-radius: 8px;
+  }
+
+  .info-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+  }
+
+  .info-content {
+    margin-top: 1rem;
+    padding-left: 2.625rem;
+  }
+
+  .info-content code {
+    background: #1f2937;
+    color: #f3f4f6;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+  }
+```
+
+The important behaviors on this screen are:
 
 - Validating input before submit.
 - Calling `AuthService.login(...)`.
@@ -1105,7 +1275,7 @@ The key behavior for the **checkbox** is:
 - When the checkbox is toggled, `updateTask(task)` is called.
 - If the backend call fails, `task.done` is flipped back so the UI stays consistent.
 
-In `src/app/tasks/tasks.component.html`, you can use this template:
+In `src/app/tasks/tasks.component.html`, paste this entire template (HTML only; the styles will live in `tasks.component.css`):
 
 ```html
 <div class="tasks-container">
@@ -1217,11 +1387,113 @@ In `src/app/tasks/tasks.component.html`, you can use this template:
 </app-confirmation-modal>
 ```
 
+Then create `src/app/tasks/tasks.component.css` and add these styles for the tasks layout and checkbox styling:
+
+```css
+  .tasks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-title {
+    font-size: 1.5rem;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .task-count {
+    margin-left: auto;
+    background: #2563eb;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .add-task-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-input {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: white;
+  }
+
+  .tasks-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .task-item.completed .task-title {
+    text-decoration: line-through;
+    color: #9ca3af;
+  }
+
+  .task-link {
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  .task-detail-container {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+```
+
 #### 3.9.3. ConfirmationModalComponent (reusable confirmation popup)
 
 The confirmation popup is a **reusable standalone component** used by `TasksComponent` when deleting a task.
 
-In `src/app/confirmation-modal/confirmation-modal.component.ts`, you can use this implementation:
+In `src/app/confirmation-modal/confirmation-modal.component.ts`, paste this entire implementation (template, styles, and class):
 
 ```typescript
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -1378,7 +1650,7 @@ export class ConfirmationModalComponent {
 
 The task detail page (`/tasks/:id`) lets users edit a single task and also toggle its **done** checkbox.
 
-In `src/app/task-detail/task-detail.component.ts`, you can use this implementation:
+In `src/app/task-detail/task-detail.component.ts`, paste this entire implementation:
 
 ```typescript
 import { Component, OnInit } from '@angular/core';
@@ -1500,7 +1772,7 @@ export class TaskDetailComponent implements OnInit {
 }
 ```
 
-In `src/app/task-detail/task-detail.component.html`, you can use this template:
+In `src/app/task-detail/task-detail.component.html`, paste this entire template:
 
 ```html
 <div class="task-detail-container">
