@@ -499,7 +499,7 @@ uvicorn app.main:app --reload --port 8000
 
 ## 3. Frontend – Angular 20 (Incremental)
 
-We now build the Angular frontend in the `frontend/` folder.
+We now build the Angular frontend in the `frontend/` folder. In this incremental lab, the **Angular workspace root** is `task-manager-lab/frontend`. (In the demo project, it is `task-manager-starter/frontend`.)
 
 ### 3.1. Create Angular App
 
@@ -507,8 +507,8 @@ We now build the Angular frontend in the `frontend/` folder.
 cd ..  # from backend back to task-manager-lab
 cd frontend
 
-ng new task-manager-frontend --routing=true --style=css --standalone
-cd task-manager-frontend
+ng new frontend --routing=true --style=css --standalone
+cd frontend
 ```
 
 ### 3.2. Generate Components, Services, Guard, Interceptor
@@ -524,7 +524,7 @@ ng generate guard auth
 ng generate interceptor http-error
 
 **Checkpoint 6 (Angular Scaffolding):**
-- Angular workspace `task-manager-frontend/` builds without errors (`ng serve` works).
+- Angular workspace `frontend/` builds without errors (`ng serve` works).
 - Components, services, guard, and interceptor files exist under `src/app/`.
 ```
 
@@ -1868,7 +1868,7 @@ In `src/app/task-detail/task-detail.component.html`, paste this entire template:
 ### 3.10. Run and Test the Frontend
 
 ```powershell
-cd task-manager-frontend
+cd frontend
 npm install
 npm start
 ```
